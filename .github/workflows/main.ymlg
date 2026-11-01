@@ -1,0 +1,94 @@
+name: CyberBuilder - Windows Compatibility Check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  windows-check:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Show Windows Information
+        run: |
+          Write-Host "======================================"
+          Write-Host " CYBERBUILDER WINDOWS CHECK"
+          Write-Host "======================================"
+
+          $os = Get-CimInstance Win32_OperatingSystem
+          Write-Host "Windows: $($os.Caption)"
+          Write-Host "Version: $($os.Version)"
+          Write-Host "Architecture: $($os.OSArchitecture)"
+
+      - name: Show Processor and Memory
+        run: |
+          Write-Host "=== PROCESSOR ==="
+          Get-CimInstance Win32_Processor |
+            Select-Object Name, NumberOfCores, NumberOfLogicalProcessors |
+            Format-List
+
+          Write-Host "=== MEMORY ==="
+          $computer = Get-CimInstance Win32_ComputerSystem
+          Write-Host ("Installed RAM: {0:N2} GB" -f ($computer.TotalPhysicalMemory / 1GB))
+
+      - name: Check Available Disk Space
+        run: |
+          Write-Host "=== DISK SPACE ==="
+          Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" |
+            Select-Object DeviceID,
+              @{Name="SizeGB";Expression={[math]::Round($_.Size / 1GB, 2)}},
+              @{Name="FreeGB";Expression={[math]::Round($_.FreeSpace / 1GB, 2)}} |
+            Format-Table -AutoSize
+
+      - name: Check Roblox Creator Website
+        continue-on-error: true
+        run: |
+          try {
+            $response = Invoke-WebRequest `
+              -Uri "https://create.roblox.com/" `
+              -Method Head `
+              -TimeoutSec 20
+            Write-Host "Roblox Creator website responded."
+            Write-Host "HTTP status: $($response.StatusCode)"
+          }
+          catch {
+            Write-Warning "Roblox Creator website check failed:"
+            Write-Warning $_.Exception.Message
+          }
+
+      - name: Check ForgeBlox Website
+        continue-on-error: true
+        run: |
+          try {
+            $response = Invoke-WebRequest `
+              -Uri "https://forgeblox.app/" `
+              -Method Head `
+              -TimeoutSec 20
+            Write-Host "ForgeBlox website responded."
+            Write-Host "HTTP status: $($response.StatusCode)"
+          }
+          catch {
+            Write-Warning "ForgeBlox website check failed:"
+            Write-Warning $_.Exception.Message
+          }
+
+      - name: Final Report
+        run: |
+          Write-Host "======================================"
+          Write-Host " CHECK FINISHED"
+          Write-Host "======================================"
+          Write-Host "This workflow checks the temporary"
+          Write-Host "GitHub Windows runner and website access."
+          Write-Host ""
+          Write-Host "It does NOT install or launch Roblox Studio."
+          Write-Host "It does NOT install or launch ForgeBlox Bridge."
+          Write-Host "It does NOT provide a remote desktop."
+          Write-Host "GitHub-hosted runners are temporary."
+          
